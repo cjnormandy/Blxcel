@@ -1,0 +1,30 @@
+@page "/upload"
+
+<h3>Upload File</h3>
+
+@if (ExcelData.Count > 0)
+{
+    <table>
+        @foreach (var row in ExcelData)
+        {
+            <tr>
+                @foreach (var cell in row)
+                {
+                    <td>@cell</td>
+                }
+            </tr>
+        }
+    </table>
+}
+
+<InputFile OnChange="fileUploadService.ProcessFileAsync"></InputFile>
+
+@code {
+    private FileUploadService fileUploadService;
+    private List<List<string>> ExcelData = new List<List<string>>();
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        ExcelData = await fileUploadService.ProcessFileAsync(e);
+    }    
+}

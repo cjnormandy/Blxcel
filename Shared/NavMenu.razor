@@ -1,0 +1,44 @@
+﻿<div class="top-row ps-3 navbar bg-white" style="background-color: #ffffff;">
+    <div class="container-fluid">
+        <img class="navbar-brand position-absolute top-0 start-5 h-100 d-inline-block" src="derrick_logo.png"/>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link bg-info" href="upload" Match="NavLinkMatch.All">
+                <span class="oi oi-arrow-circle-bottom" aria-hidden="true"></span> Import
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link bg-info" href="counter">
+                <span class="oi oi-plus" aria-hidden="true"></span> Counter
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link bg-info" href="fetchdata">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Fetch data
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link bg-info" href="todo">
+                <span class="oi oi-task" aria-hidden="true"></span> Todo
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}
