@@ -41,3 +41,4 @@
 /Users/cjnorman/Documents/BlazeApp/bin/Debug/net7.0/runtimes/win/lib/net7.0/System.Drawing.Common.dll
 /Users/cjnorman/Documents/BlazeApp/bin/Debug/net7.0/runtimes/win/lib/net7.0/System.Security.Cryptography.Pkcs.dll
 /Users/cjnorman/Documents/BlazeApp/obj/Debug/net7.0/BlazeApp.csproj.CopyComplete
+/Users/cjnorman/Documents/BlazeApp/obj/Debug/net7.0/BlazeApp.sourcelink.json

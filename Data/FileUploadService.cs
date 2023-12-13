@@ -4,7 +4,7 @@ using OfficeOpenXml;
 namespace BlazeApp.Data;
 public class FileUploadService
 {
-    public async Task<List<List<string>>?> ProcessFileAsync(InputFileChangeEventArgs e)
+    public async Task<List<List<string>>> ProcessFileAsync(InputFileChangeEventArgs e)
     {
         var res = new List<List<string>>();
         var file = e.File;
@@ -35,6 +35,6 @@ public class FileUploadService
             }
             return res;
         }
-        return null;
+        return res;
     }
 }

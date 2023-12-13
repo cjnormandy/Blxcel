@@ -50,6 +50,16 @@
     color: white;
 }
 
+#settings {
+    background-color: green;
+    color: white;
+}
+
+.nav-item #reports {
+    background-color: red;
+    color: white;
+}
+
 @media (min-width: 641px) {
     .navbar-toggler {
         display: none;
