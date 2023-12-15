@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BlazeApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+db75fc18a8ddb317fb0f618565e0dd65297aec78")]
 [assembly: System.Reflection.AssemblyProductAttribute("BlazeApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BlazeApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

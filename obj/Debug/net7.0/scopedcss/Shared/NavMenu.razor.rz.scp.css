@@ -50,16 +50,6 @@
     color: white;
 }
 
-#settings[b-27jil6wzez] {
-    background-color: green;
-    color: white;
-}
-
-.nav-item #reports[b-27jil6wzez] {
-    background-color: red;
-    color: white;
-}
-
 @media (min-width: 641px) {
     .navbar-toggler[b-27jil6wzez] {
         display: none;
