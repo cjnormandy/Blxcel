@@ -1,5 +1,6 @@
 @page "/file-upload-1"
 @using OfficeOpenXml;
+@using System.Data;
 @inject ILogger<FileUpload1> Logger
 
 <h3>Upload Files</h3>
@@ -46,51 +47,88 @@ else
     </ul>
 }
 
-@if (genRes.Count > 0)
+@if (cityDetailTable != null && cityDetailTable.Rows.Count > 0)
 {
     <table class="table">
         <thead>
             <tr>
-                <th>Name</th>
-                <th>Population</th>
-                <th>Country</th>
-                <th>Area</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var row in genRes)
-            {
-                <tr>
-                    @foreach (var col in row)
-                    {
-                        <td>@col</td>
-                    }
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-
-@if (result.Count > 0)
-{
-    <table class="table">
-        <thead>
-            <tr>
-                @foreach (var h in columnHeaders)
+                @foreach (DataColumn col in cityDetailTable.Columns)
                 {
-                    <th>@h</th>   
+                    if (col.ColumnName != "cityDetailId")
+                    {
+                        <th>@col.ColumnName <div @onclick="() => SortRowsBy(col.ColumnName)" class="inline oi oi-chevron-top"></div></th>
+                    }
                 }
+                <th></th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var d in result)
-            {
-                <tr>
-                    @foreach (var item in d)
-                    {
-                        <td>@item.Value</td>
-                    }
-                </tr>
+            @{
+                int rowIdx = 0;
+                @foreach (DataRow row in cityDetailTable.Rows)
+                {
+                    int currIdx = rowIdx;
+                    string rowClass = (selectedRow1 == currIdx || selectedRow2 == currIdx) ? "bg-primary" : "";
+                    <tr @onclick="() => SelectRowForSwap(currIdx)" class="@rowClass">
+                        
+                        @if (EditRowId != row["cityDetailId"].ToString())
+                        {
+                            @foreach (DataColumn col in cityDetailTable.Columns)
+                            {
+                                if (col.ColumnName != "cityDetailId")
+                                {
+                                    <td>@row[col.ColumnName]</td>
+                                }
+                            }
+                            if (!IsLastRow(row))
+                            {
+                                var cityInfoId = row["cityDetailId"].ToString();
+                                <td>
+                                    <button @onclick="() => BeginEdit(row)">Edit</button>
+                                    <button @onclick="() => DeleteCityAndRefreshUI(cityInfoId)">Delete</button>
+                                </td>
+                            }
+                            else
+                            {
+                                <td></td>
+                            }
+                        }
+                        else
+                        {
+                            @foreach (DataColumn col in cityDetailTable.Columns)
+                            {
+                                if (col.ColumnName != "cityDetailId")
+                                {
+                                    var cityInfoId = row["cityDetailId"].ToString();
+                                    if (col.ColumnName == "citySeen")
+                                    {
+                                        <td>
+                                            <input type="checkbox" checked="@(row[col.ColumnName].ToString() == "Y")" @onchange="@(e => OnCheckboxChange(e, row, col.ColumnName))" />
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td>
+                                            <input type="text" value="@row[col.ColumnName]" @onchange="@(e => OnInputChange(e, cityInfoId, col.ColumnName))" />
+                                        </td>
+                                    }
+                                }
+                            }
+
+                            if (!IsLastRow(row))
+                            {
+                                <td>
+                                    <button @onclick="() => EndEdit()">Save</button>
+                                </td>
+                            }
+                            else
+                            {
+                                <td></td>
+                            }
+                        }
+                    </tr>
+                    rowIdx++;
+                }   
             }
         </tbody>
     </table>

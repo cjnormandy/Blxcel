@@ -1,4 +1,6 @@
 ﻿@page "/counter"
+@* @using Microsoft.JSInterop
+@inject IJSRuntime JS *@
 
 <PageTitle>Counter</PageTitle>
 
@@ -8,13 +10,24 @@
 
 <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
 
+@* <div @ref="divElement">Text during render</div> *@
+
 @code {
     private int currentCount = 0;
-
+    private ElementReference divElement;
     [Parameter]
     public int IncrementAmount { get; set; } = 1;
     private void IncrementCount()
     {
         currentCount += IncrementAmount;
     }
+
+    @* protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync(
+                "setElementText1", divElement, "Text after render");
+        }
+    } *@
 }
