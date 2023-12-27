@@ -41,6 +41,10 @@
             "EPPlus": {
               "target": "Package",
               "version": "[7.0.2, )"
+            },
+            "Microsoft.Azure.Cosmos": {
+              "target": "Package",
+              "version": "[3.37.0, )"
             }
           },
           "imports": [

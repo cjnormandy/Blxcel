@@ -2,6 +2,7 @@
 @using OfficeOpenXml;
 @using System.Data;
 @inject ILogger<FileUpload1> Logger
+@inject CosmosDbService cosmosDbService
 
 <h3>Upload Files</h3>
 
@@ -133,3 +134,13 @@ else
         </tbody>
     </table>
 }
+
+<button @onclick="OpenAddCityInfoModal">Add New City</button>
+
+<input @bind="newCityInfo.Name"/>
+        <input @bind="newCityInfo.Population"/>
+        <input @bind="newCityInfo.Country"/>
+        <input @bind="newCityInfo.Area"/>
+        <input @bind="newCityInfo.Seen">
+
+        <button @onclick="AddCityInfo">Add City</button>

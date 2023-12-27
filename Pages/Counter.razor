@@ -1,6 +1,7 @@
 ﻿@page "/counter"
 @* @using Microsoft.JSInterop
 @inject IJSRuntime JS *@
+@inject CosmosDbService cosmosDbService
 
 <PageTitle>Counter</PageTitle>
 
@@ -11,6 +12,20 @@
 <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
 
 @* <div @ref="divElement">Text during render</div> *@
+
+@if (items != null)
+{
+    foreach (var item in items)
+    {
+        <div>@item.Name</div>
+        // Display other properties as needed
+    }
+}
+else
+{
+    <p>Loading...</p>
+}
+
 
 @code {
     private int currentCount = 0;
@@ -30,4 +45,11 @@
                 "setElementText1", divElement, "Text after render");
         }
     } *@
+
+    private List<MyItem> items;
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await cosmosDbService.GetAllItemsAsync();
+    }
 }

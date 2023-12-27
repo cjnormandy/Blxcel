@@ -1,13 +1,23 @@
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using BlazeApp.Data;
+using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var cosmosDbEndpoint = builder.Configuration["CosmosDb:Endpoint"];
+var cosmosDbKey = builder.Configuration["CosmosDb:Key"];
 
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSingleton<WeatherForecastService>();
+
+// Add Cosmos DB client as a singleton service
+builder.Services.AddSingleton<CosmosClient>(s =>
+{
+    return new CosmosClient(cosmosDbEndpoint, cosmosDbKey, new CosmosClientOptions());
+});
+builder.Services.AddSingleton<CosmosDbService>();
+
 
 var app = builder.Build();
 

@@ -28,6 +28,21 @@ namespace BlazeApp.Pages
 
 
 
+        private CityInfo newCityInfo = new CityInfo();
+        private bool showAddCityInfoModal = false;
+
+        private void OpenAddCityInfoModal()
+        {
+            showAddCityInfoModal = true;
+        }
+
+        private async Task AddCityInfo()
+        {
+            await cosmosDbService.AddCityInfoAsync(newCityInfo);
+            showAddCityInfoModal = false;
+            // Optionally refresh the data displayed in the table
+        }
+
         void BeginEdit(DataRow row)
         {
             EditRowId = row["cityDetailId"].ToString();
@@ -288,7 +303,6 @@ namespace BlazeApp.Pages
             DataRow lastRow = cityDetailTable.Rows[cityDetailTable.Rows.Count - 1];
             object[] lastRowData = lastRow.ItemArray;
 
-            // Remove the last row from the table
             cityDetailTable.Rows.RemoveAt(cityDetailTable.Rows.Count - 1);
 
             // Sort the remaining rows
@@ -296,7 +310,6 @@ namespace BlazeApp.Pages
             view.Sort = colName;
             cityDetailTable = view.ToTable();
 
-            // Create a new row with the copied data and add it to the table
             DataRow newRow = cityDetailTable.NewRow();
             newRow.ItemArray = lastRowData;
             cityDetailTable.Rows.Add(newRow);
