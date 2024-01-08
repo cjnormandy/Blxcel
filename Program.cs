@@ -16,7 +16,7 @@ builder.Services.AddSingleton<CosmosClient>(s =>
 {
     return new CosmosClient(cosmosDbEndpoint, cosmosDbKey, new CosmosClientOptions());
 });
-builder.Services.AddSingleton<CosmosDbService>();
+builder.Services.AddSingleton<CityInfoDbService>();
 
 
 var app = builder.Build();

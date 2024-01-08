@@ -2,27 +2,13 @@
 @using OfficeOpenXml;
 @using System.Data;
 @inject ILogger<FileUpload1> Logger
-@inject CosmosDbService cosmosDbService
+@inject CityInfoDbService cosmosDbService
 
 <h3>Upload Files</h3>
 
 <p>
     <label>
-        Max file size:
-        <input type="number" @bind="maxFileSize" />
-    </label>
-</p>
-
-<p>
-    <label>
-        Max allowed files:
-        <input type="number" @bind="maxAllowedFiles" />
-    </label>
-</p>
-
-<p>
-    <label>
-        Upload up to @maxAllowedFiles of up to @maxFileSize bytes:
+        Make a selection to upload:
         <InputFile OnChange="@ReadExcelDataAsync" multiple />
     </label>
 </p>
@@ -57,7 +43,7 @@ else
                 {
                     if (col.ColumnName != "cityDetailId")
                     {
-                        <th>@col.ColumnName <div @onclick="() => SortRowsBy(col.ColumnName)" class="inline oi oi-chevron-top"></div></th>
+                        <th>@col.ColumnName <div @onclick="() => SortRowsBy(col.ColumnName)" class="inline @GetSortIconClass(col.ColumnName)"></div></th>
                     }
                 }
                 <th></th>
@@ -100,7 +86,6 @@ else
                             {
                                 if (col.ColumnName != "cityDetailId")
                                 {
-                                    var cityInfoId = row["cityDetailId"].ToString();
                                     if (col.ColumnName == "citySeen")
                                     {
                                         <td>
@@ -110,7 +95,7 @@ else
                                     else
                                     {
                                         <td>
-                                            <input type="text" value="@row[col.ColumnName]" @onchange="@(e => OnInputChange(e, cityInfoId, col.ColumnName))" />
+                                            <input type="text" value="@row[col.ColumnName]" @onchange="@(e => OnInputChange(e, row, col.ColumnName))" />
                                         </td>
                                     }
                                 }
@@ -119,7 +104,7 @@ else
                             if (!IsLastRow(row))
                             {
                                 <td>
-                                    <button @onclick="() => EndEdit()">Save</button>
+                                    <button @onclick="() => EndEdit(row)">Save</button>
                                 </td>
                             }
                             else
@@ -134,13 +119,3 @@ else
         </tbody>
     </table>
 }
-
-<button @onclick="OpenAddCityInfoModal">Add New City</button>
-
-<input @bind="newCityInfo.Name"/>
-        <input @bind="newCityInfo.Population"/>
-        <input @bind="newCityInfo.Country"/>
-        <input @bind="newCityInfo.Area"/>
-        <input @bind="newCityInfo.Seen">
-
-        <button @onclick="AddCityInfo">Add City</button>

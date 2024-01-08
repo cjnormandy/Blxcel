@@ -1,7 +1,12 @@
 using System.Data;
+using System.Drawing.Design;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.SignalR;
 using OfficeOpenXml;
+using OfficeOpenXml.Export.HtmlExport.Accessibility;
+using static System.Text.Json.JsonSerializer;
 
 namespace BlazeApp.Pages
 {
@@ -13,11 +18,12 @@ namespace BlazeApp.Pages
         private List<Dictionary<string, object>> result = new();
         private long maxFileSize = 1024 * 15;
         private int maxAllowedFiles = 3;
+        
         private bool isLoading;
 
         // MARK: DataTable Logic
         private DataTable cityDetailTable = CreateCityDetailTable();
-        private List<CityInfo> cityInfoList = new List<CityInfo>();
+        private List<CityInfo> cityInfoList;
 
 
         // MARK: Edit table logic
@@ -26,6 +32,13 @@ namespace BlazeApp.Pages
         int? selectedRow2 = null;
         private int? currentlySelectedRow = null;
 
+        private DataTable originalView;
+        private Dictionary<string, SortState?> sortStates = new Dictionary<string, SortState?>();
+        public void InitializeOriginalTable(DataTable table)
+        {
+            originalView = table.Copy();
+            originalView.Rows.RemoveAt(originalView.Rows.Count - 1);
+        }
 
 
         private CityInfo newCityInfo = new CityInfo();
@@ -38,9 +51,9 @@ namespace BlazeApp.Pages
 
         private async Task AddCityInfo()
         {
+            newCityInfo.id = Guid.NewGuid().ToString();
             await cosmosDbService.AddCityInfoAsync(newCityInfo);
             showAddCityInfoModal = false;
-            // Optionally refresh the data displayed in the table
         }
 
         void BeginEdit(DataRow row)
@@ -48,8 +61,18 @@ namespace BlazeApp.Pages
             EditRowId = row["cityDetailId"].ToString();
         }
 
-        void EndEdit()
+        async void EndEdit(DataRow row)
         {
+            CityInfo updatedCityInfo = new CityInfo
+            {
+                id = row["cityDetailId"].ToString(),
+                Name = row["cityName"].ToString(),
+                Population = Convert.ToInt32(row["cityPopulation"]),
+                Country = row["cityCountry"].ToString(),
+                Area = Convert.ToDouble(row["cityArea"]),
+                Seen = row["citySeen"].ToString()
+            };
+            await cosmosDbService.UpdateCityInfoAsync(updatedCityInfo);
             EditRowId = null;
         }
 
@@ -71,7 +94,7 @@ namespace BlazeApp.Pages
                     using (ExcelPackage package = new ExcelPackage(memoryStream))
                     {
                         ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
-                        int rowCount = 7;
+                        int rowCount = 6;
                         int colCount = 4;
 
                         for (int row = 2; row <= rowCount; row++)
@@ -112,7 +135,7 @@ namespace BlazeApp.Pages
                     columnHeaders.Add(worksheet.Cells[1, col].Text);
                 }
 
-                for (int row = 2; row <= 7; row++)
+                for (int row = 2; row <= 6; row++)
                 {
                     var rowDict = new Dictionary<string, object>();
                     for (int col = 1; col <= columnHeaders.Count; col++)
@@ -124,7 +147,6 @@ namespace BlazeApp.Pages
                     result.Add(rowDict);
                 }
             }
-
             ConvertDictionaryToModel(result);
 
             return result;
@@ -137,37 +159,58 @@ namespace BlazeApp.Pages
             {
                 var model = new CityInfo
                 {
-                    Id = Guid.NewGuid().ToString(),
+                    id = row.ContainsKey("id") ? Convert.ToString(row["id"]) : Guid.NewGuid().ToString(),
                     Name = row.ContainsKey("Name") ? Convert.ToString(row["Name"]) : null,
                     Population = row.ContainsKey("Population") ? Convert.ToInt64(row["Population"]) : 0,
                     Country = row.ContainsKey("Country") ? Convert.ToString(row["Country"]) : null,
                     Area = row.ContainsKey("Area") ? Convert.ToDouble(row["Area"]) : 0,
                     Seen = row.ContainsKey("Seen") ? Convert.ToString(row["Seen"]) : "N",
+                    DateAdded = row.ContainsKey("DateAdded") ? Convert.ToDateTime(row["DateAdded"]) : DateTime.UtcNow,
                 };
 
                 models.Add(model);
             }
-
             cityInfoList = models;
             InsertCityDetails(cityDetailTable, models);
-            
+            AddCityInfosAsync(models);
+            InitializeOriginalTable(cityDetailTable);
+
             return models;
         }
 
         public static void InsertCityDetails(DataTable cityDT, List<CityInfo> cityRows)
         {
+            double totPop = 0;
+            double totArea = 0;
             foreach(CityInfo cityInfo in cityRows)
             {
                 DataRow row = cityDT.NewRow();
 
-                row["cityDetailId"] = cityInfo.Id;
+                row["cityDetailId"] = cityInfo.id;
                 row["cityName"] = cityInfo.Name;
                 row["cityPopulation"] = cityInfo.Population;
                 row["cityCountry"] = cityInfo.Country;
                 row["cityArea"] = cityInfo.Area;
                 row["citySeen"] = cityInfo.Seen;
 
+                totPop += cityInfo.Population;
+                totArea += cityInfo.Area;
+
                 cityDT.Rows.Add(row);
+            }
+
+            if (cityRows.Count > 0)
+            {
+                DataRow averageRow = cityDT.NewRow();
+
+                averageRow["cityDetailId"] = DBNull.Value;
+                averageRow["cityName"] = "Average";
+                averageRow["cityPopulation"] = totPop / cityRows.Count;
+                averageRow["cityCountry"] = DBNull.Value;
+                averageRow["cityArea"] = totArea / cityRows.Count;
+                averageRow["citySeen"] = DBNull.Value;
+
+                cityDT.Rows.Add(averageRow);
             }
         }
 
@@ -189,17 +232,25 @@ namespace BlazeApp.Pages
             return cityDetailDT;      
         }
 
-        private void OnInputChange(ChangeEventArgs e, string cityInfoId, string columnName)
+        private async void AddCityInfosAsync(List<CityInfo> cityInfos)
+        {
+            foreach (var cityInfo in cityInfos)
+            {
+                await cosmosDbService.AddCityInfoAsync(cityInfo);
+            }
+        }
+
+        private void OnInputChange(ChangeEventArgs e, DataRow row, string columnName)
         {
             var updatedVal = e.Value.ToString();
-            var cityInfo = cityInfoList.FirstOrDefault(c => c.Id == cityInfoId);
-
+            var cityInfoName = row["cityName"].ToString();
+            var cityInfo = cityInfoList.FirstOrDefault(c => c.Name == cityInfoName);
             if (cityInfo != null)
             {
-                var row = cityDetailTable.AsEnumerable().FirstOrDefault(r => r.Field<string>("cityDetailId") == cityInfoId);
-                if (row != null)
+                var rrow = cityDetailTable.AsEnumerable().FirstOrDefault(r => r.Field<string>("cityName") == cityInfoName);
+                if (rrow != null)
                 {
-                    row[columnName] = updatedVal;
+                    rrow[columnName] = updatedVal;
                 }
 
                 UpdateCityInfoModel(cityInfo, columnName, updatedVal);
@@ -214,7 +265,7 @@ namespace BlazeApp.Pages
 
             // Find and update the corresponding CityInfo object
             var cityInfoId = row["cityDetailId"].ToString();
-            var cityInfo = cityInfoList.FirstOrDefault(c => c.Id == cityInfoId);
+            var cityInfo = cityInfoList.FirstOrDefault(c => c.id == cityInfoId);
             if (cityInfo != null)
             {
                 UpdateCityInfoModel(cityInfo, columnName, newValue);
@@ -235,12 +286,14 @@ namespace BlazeApp.Pages
                     cityInfo.Country = updatedValue;
                     break;
                 case "cityArea":
-                    cityInfo.Area = Convert.ToDouble(updatedValue);
+                    cityInfo.Area = Convert.ToInt64(updatedValue);
                     break;
                 case "citySeen":
                     cityInfo.Seen = updatedValue;
                     break;
             }
+            cityInfo.DateAdded = DateTime.UtcNow;
+            RecalculateAverages();
         }
 
 
@@ -250,15 +303,24 @@ namespace BlazeApp.Pages
             return cityDetailTable.Rows.IndexOf(row) == cityDetailTable.Rows.Count - 1;
         }
 
-        private void DeleteCity(string cityInfoId)
+        private async void DeleteCity(string cityInfoId)
         {
+            bool isDeleted = false;
             foreach (DataRow row in cityDetailTable.Rows)
             {
                 if (row["cityDetailId"].ToString() == cityInfoId)
                 {
+                    string cityName = row["cityName"].ToString();
+                    await cosmosDbService.DeleteCityInfoAsync(cityName);
                     cityDetailTable.Rows.Remove(row);
+                    isDeleted = true;
                     break;
                 }
+            }
+
+            if (isDeleted)
+            {
+                RecalculateAverages();
             }
         }
 
@@ -266,6 +328,38 @@ namespace BlazeApp.Pages
         {
             DeleteCity(cityInfoId);
             StateHasChanged();
+        }
+
+        private void RecalculateAverages()
+        {
+            double totalPopulation = 0;
+            double totalArea = 0;
+            int count = 0;
+
+            foreach (DataRow row in cityDetailTable.Rows)
+            {
+                if (row["cityDetailId"] != DBNull.Value)
+                {
+                    totalPopulation += Convert.ToDouble(row["cityPopulation"]);
+                    totalArea += Convert.ToDouble(row["cityArea"]);
+                    count++;
+                }
+            }
+
+            DataRow averageRow = cityDetailTable.AsEnumerable().FirstOrDefault(r => r["cityDetailId"] == DBNull.Value);
+
+            if (averageRow == null)
+            {
+                averageRow = cityDetailTable.NewRow();
+                averageRow["cityDetailId"] = DBNull.Value;
+                cityDetailTable.Rows.Add(averageRow);
+            }
+
+            averageRow["cityName"] = "Average";
+            averageRow["cityPopulation"] = count > 0 ? totalPopulation / count : 0;
+            averageRow["cityCountry"] = DBNull.Value;
+            averageRow["cityArea"] = count > 0 ? totalArea / count : 0;
+            averageRow["citySeen"] = DBNull.Value;
         }
 
         void SelectRowForSwap(int rowIndex)
@@ -297,24 +391,70 @@ namespace BlazeApp.Pages
             cityDetailTable.Rows[idx2].ItemArray = temp;
         }
 
+        
         void SortRowsBy(string colName)
         {
+
             // Store the last row's data before removing it from the table
             DataRow lastRow = cityDetailTable.Rows[cityDetailTable.Rows.Count - 1];
             object[] lastRowData = lastRow.ItemArray;
 
             cityDetailTable.Rows.RemoveAt(cityDetailTable.Rows.Count - 1);
+            
+            if (!sortStates.ContainsKey(colName))
+            {
+                sortStates[colName] = SortState.None;
+            }
 
-            // Sort the remaining rows
+            sortStates[colName] = sortStates[colName] switch
+            {
+                SortState.None => SortState.Ascending,
+                SortState.Ascending => SortState.Descending,
+                SortState.Descending => SortState.None,
+                _ => SortState.None,
+            };
+
             DataView view = cityDetailTable.DefaultView;
-            view.Sort = colName;
-            cityDetailTable = view.ToTable();
+            switch (sortStates[colName])
+            {
+                case SortState.None:
+                    cityDetailTable = originalView.Copy();
+                    break;
+                case SortState.Ascending:
+                    view.Sort = $"{colName} ASC";
+                    cityDetailTable = view.ToTable();
+                    break;
+                case SortState.Descending:
+                    view.Sort = $"{colName} DESC";
+                    cityDetailTable = view.ToTable();
+                    break;
+            }
 
             DataRow newRow = cityDetailTable.NewRow();
             newRow.ItemArray = lastRowData;
             cityDetailTable.Rows.Add(newRow);
         }
 
+        public string GetSortIconClass(string columnName)
+        {
+            if (sortStates.ContainsKey(columnName))
+            {
+                return sortStates[columnName] switch
+                {
+                    SortState.Ascending => "oi oi-chevron-top",
+                    SortState.Descending => "oi oi-chevron-bottom",
+                    _ => "oi oi-elevator",
+                };
+            }
+            return "oi oi-elevator";
+        }
 
     }
+}
+
+enum SortState
+{
+    None,
+    Ascending,
+    Descending
 }

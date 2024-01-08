@@ -1,7 +1,6 @@
 ﻿@page "/counter"
 @* @using Microsoft.JSInterop
 @inject IJSRuntime JS *@
-@inject CosmosDbService cosmosDbService
 
 <PageTitle>Counter</PageTitle>
 
@@ -13,7 +12,7 @@
 
 @* <div @ref="divElement">Text during render</div> *@
 
-@if (items != null)
+@* @if (items != null)
 {
     foreach (var item in items)
     {
@@ -24,7 +23,7 @@
 else
 {
     <p>Loading...</p>
-}
+} *@
 
 
 @code {
@@ -46,10 +45,10 @@ else
         }
     } *@
 
-    private List<MyItem> items;
+    @* private List<MyItem> items;
 
     protected override async Task OnInitializedAsync()
     {
         items = await cosmosDbService.GetAllItemsAsync();
-    }
+    } *@
 }
