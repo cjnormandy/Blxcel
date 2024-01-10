@@ -18,6 +18,10 @@ builder.Services.AddSingleton<CosmosClient>(s =>
 });
 builder.Services.AddSingleton<CityInfoDbService>();
 
+builder.Services.AddSingleton<ExcelFileHandler>();
+
+builder.Services.AddSingleton<DataTableService>();
+
 
 var app = builder.Build();
 

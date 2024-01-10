@@ -1,12 +1,6 @@
 using System.Data;
-using System.Drawing.Design;
-using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.AspNetCore.SignalR;
-using OfficeOpenXml;
-using OfficeOpenXml.Export.HtmlExport.Accessibility;
-using static System.Text.Json.JsonSerializer;
 
 namespace BlazeApp.Pages
 {
@@ -14,16 +8,16 @@ namespace BlazeApp.Pages
     {
         private List<IBrowserFile> loadedFiles = new();
         private List<string> columnHeaders = new();
-        private List<List<object>> genRes = new();
         private List<Dictionary<string, object>> result = new();
-        private long maxFileSize = 1024 * 15;
-        private int maxAllowedFiles = 3;
-        
         private bool isLoading;
 
         // MARK: DataTable Logic
-        private DataTable cityDetailTable = CreateCityDetailTable();
-        private List<CityInfo> cityInfoList;
+        [Inject]
+        private DataTableService dataTableService { get; set; }
+        private DataTable cityDetailTable = new();
+        private List<CityInfo> cityInfoList = new();
+        [Inject]
+        private ExcelFileHandler excelFileHandler { get; set; }
 
 
         // MARK: Edit table logic
@@ -34,26 +28,11 @@ namespace BlazeApp.Pages
 
         private DataTable originalView;
         private Dictionary<string, SortState?> sortStates = new Dictionary<string, SortState?>();
+
         public void InitializeOriginalTable(DataTable table)
         {
             originalView = table.Copy();
             originalView.Rows.RemoveAt(originalView.Rows.Count - 1);
-        }
-
-
-        private CityInfo newCityInfo = new CityInfo();
-        private bool showAddCityInfoModal = false;
-
-        private void OpenAddCityInfoModal()
-        {
-            showAddCityInfoModal = true;
-        }
-
-        private async Task AddCityInfo()
-        {
-            newCityInfo.id = Guid.NewGuid().ToString();
-            await cosmosDbService.AddCityInfoAsync(newCityInfo);
-            showAddCityInfoModal = false;
         }
 
         void BeginEdit(DataRow row)
@@ -79,8 +58,14 @@ namespace BlazeApp.Pages
         private async Task ReadExcelDataAsync(InputFileChangeEventArgs e)
         {
             isLoading = true;
-            genRes.Clear();
+
+            cityDetailTable = dataTableService.CreateCityDetailTable();
+
+            result.Clear();
             loadedFiles.Clear();
+            cityInfoList.Clear();
+            columnHeaders.Clear();
+            cityDetailTable.Clear();
 
             foreach (var file in e.GetMultipleFiles())
             {
@@ -88,156 +73,13 @@ namespace BlazeApp.Pages
                 await file.OpenReadStream().CopyToAsync(memoryStream);
 
                 memoryStream.Position = 0;
-                ReadExcelToDictionaryAsync(memoryStream);
-                try
-                {
-                    using (ExcelPackage package = new ExcelPackage(memoryStream))
-                    {
-                        ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
-                        int rowCount = 6;
-                        int colCount = 4;
+                excelFileHandler.ReadExcelToDictionaryAsync(memoryStream, columnHeaders, result, cityInfoList, cityDetailTable);
+                InitializeOriginalTable(cityDetailTable);
 
-                        for (int row = 2; row <= rowCount; row++)
-                        {
-                            List<object> rowData = new List<object>();
-                            for (int col = 1; col <= colCount; col++)
-                            {
-                                object value = worksheet.Cells[row, col].Value;
-                                rowData.Add(value);
-                            }
-                            genRes.Add(rowData);
-                        }
-                    }
-
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Error processing file: " + ex.Message);
-                }
             }
 
             isLoading = false;
             
-        }
-
-        public List<Dictionary<string, object>> ReadExcelToDictionaryAsync(Stream fileStream)
-        {
-            result.Clear();
-            columnHeaders.Clear();
-            cityDetailTable.Clear();
-
-            using (var package = new ExcelPackage(fileStream))
-            {
-                var worksheet = package.Workbook.Worksheets[0];
-
-                for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
-                {
-                    columnHeaders.Add(worksheet.Cells[1, col].Text);
-                }
-
-                for (int row = 2; row <= 6; row++)
-                {
-                    var rowDict = new Dictionary<string, object>();
-                    for (int col = 1; col <= columnHeaders.Count; col++)
-                    {
-                        var key = columnHeaders[col - 1];
-                        var value = worksheet.Cells[row, col].Value;
-                        rowDict.Add(key, value);
-                    }
-                    result.Add(rowDict);
-                }
-            }
-            ConvertDictionaryToModel(result);
-
-            return result;
-        }
-
-        public List<CityInfo> ConvertDictionaryToModel(List<Dictionary<string, object>> data)
-        {
-            var models = new List<CityInfo>();
-            foreach (var row in data)
-            {
-                var model = new CityInfo
-                {
-                    id = row.ContainsKey("id") ? Convert.ToString(row["id"]) : Guid.NewGuid().ToString(),
-                    Name = row.ContainsKey("Name") ? Convert.ToString(row["Name"]) : null,
-                    Population = row.ContainsKey("Population") ? Convert.ToInt64(row["Population"]) : 0,
-                    Country = row.ContainsKey("Country") ? Convert.ToString(row["Country"]) : null,
-                    Area = row.ContainsKey("Area") ? Convert.ToDouble(row["Area"]) : 0,
-                    Seen = row.ContainsKey("Seen") ? Convert.ToString(row["Seen"]) : "N",
-                    DateAdded = row.ContainsKey("DateAdded") ? Convert.ToDateTime(row["DateAdded"]) : DateTime.UtcNow,
-                };
-
-                models.Add(model);
-            }
-            cityInfoList = models;
-            InsertCityDetails(cityDetailTable, models);
-            AddCityInfosAsync(models);
-            InitializeOriginalTable(cityDetailTable);
-
-            return models;
-        }
-
-        public static void InsertCityDetails(DataTable cityDT, List<CityInfo> cityRows)
-        {
-            double totPop = 0;
-            double totArea = 0;
-            foreach(CityInfo cityInfo in cityRows)
-            {
-                DataRow row = cityDT.NewRow();
-
-                row["cityDetailId"] = cityInfo.id;
-                row["cityName"] = cityInfo.Name;
-                row["cityPopulation"] = cityInfo.Population;
-                row["cityCountry"] = cityInfo.Country;
-                row["cityArea"] = cityInfo.Area;
-                row["citySeen"] = cityInfo.Seen;
-
-                totPop += cityInfo.Population;
-                totArea += cityInfo.Area;
-
-                cityDT.Rows.Add(row);
-            }
-
-            if (cityRows.Count > 0)
-            {
-                DataRow averageRow = cityDT.NewRow();
-
-                averageRow["cityDetailId"] = DBNull.Value;
-                averageRow["cityName"] = "Average";
-                averageRow["cityPopulation"] = totPop / cityRows.Count;
-                averageRow["cityCountry"] = DBNull.Value;
-                averageRow["cityArea"] = totArea / cityRows.Count;
-                averageRow["citySeen"] = DBNull.Value;
-
-                cityDT.Rows.Add(averageRow);
-            }
-        }
-
-        private static DataTable CreateCityDetailTable()
-        {
-            DataTable cityDetailDT = new DataTable("cityDetail");
-            DataColumn[] cols =
-            {
-                new DataColumn("cityDetailId", typeof(string)),
-                new DataColumn("cityName", typeof(string)),
-                new DataColumn("cityPopulation", typeof(long)),
-                new DataColumn("cityCountry", typeof(string)),
-                new DataColumn("cityArea", typeof(double)),
-                new DataColumn("citySeen", typeof(string)),
-            };
-
-            cityDetailDT.Columns.AddRange(cols);
-
-            return cityDetailDT;      
-        }
-
-        private async void AddCityInfosAsync(List<CityInfo> cityInfos)
-        {
-            foreach (var cityInfo in cityInfos)
-            {
-                await cosmosDbService.AddCityInfoAsync(cityInfo);
-            }
         }
 
         private void OnInputChange(ChangeEventArgs e, DataRow row, string columnName)
@@ -293,7 +135,8 @@ namespace BlazeApp.Pages
                     break;
             }
             cityInfo.DateAdded = DateTime.UtcNow;
-            RecalculateAverages();
+            // RecalculateAverages();
+            dataTableService.CalculateAverages(cityDetailTable);
         }
 
 
@@ -320,7 +163,8 @@ namespace BlazeApp.Pages
 
             if (isDeleted)
             {
-                RecalculateAverages();
+                // RecalculateAverages();
+                dataTableService.CalculateAverages(cityDetailTable);
             }
         }
 
@@ -328,38 +172,6 @@ namespace BlazeApp.Pages
         {
             DeleteCity(cityInfoId);
             StateHasChanged();
-        }
-
-        private void RecalculateAverages()
-        {
-            double totalPopulation = 0;
-            double totalArea = 0;
-            int count = 0;
-
-            foreach (DataRow row in cityDetailTable.Rows)
-            {
-                if (row["cityDetailId"] != DBNull.Value)
-                {
-                    totalPopulation += Convert.ToDouble(row["cityPopulation"]);
-                    totalArea += Convert.ToDouble(row["cityArea"]);
-                    count++;
-                }
-            }
-
-            DataRow averageRow = cityDetailTable.AsEnumerable().FirstOrDefault(r => r["cityDetailId"] == DBNull.Value);
-
-            if (averageRow == null)
-            {
-                averageRow = cityDetailTable.NewRow();
-                averageRow["cityDetailId"] = DBNull.Value;
-                cityDetailTable.Rows.Add(averageRow);
-            }
-
-            averageRow["cityName"] = "Average";
-            averageRow["cityPopulation"] = count > 0 ? totalPopulation / count : 0;
-            averageRow["cityCountry"] = DBNull.Value;
-            averageRow["cityArea"] = count > 0 ? totalArea / count : 0;
-            averageRow["citySeen"] = DBNull.Value;
         }
 
         void SelectRowForSwap(int rowIndex)
@@ -450,11 +262,4 @@ namespace BlazeApp.Pages
         }
 
     }
-}
-
-enum SortState
-{
-    None,
-    Ascending,
-    Descending
 }
