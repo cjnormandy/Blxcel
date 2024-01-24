@@ -13,6 +13,7 @@ public class DataTableService
             new DataColumn("cityCountry", typeof(string)),
             new DataColumn("cityArea", typeof(double)),
             new DataColumn("citySeen", typeof(string)),
+            new DataColumn("cityColor", typeof(string)),
         };
 
         cityDetailDT.Columns.AddRange(cols);

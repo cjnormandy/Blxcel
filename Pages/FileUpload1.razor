@@ -92,6 +92,18 @@ else
                                             <input type="checkbox" checked="@(row[col.ColumnName].ToString() == "Y")" @onchange="@(e => OnCheckboxChange(e, row, col.ColumnName))" />
                                         </td>
                                     }
+                                    else if (col.ColumnName == "cityCountry")
+                                    {
+                                        <label for="country">Choose a Country:</label>
+
+                                        <select name="country" id="country" @onchange="@(e => OnSelectChange(e, row, col.ColumnName))" >
+                                            <option value="Japan">Japan</option>
+                                            <option value="Indonesia">Indonesia</option>
+                                            <option value="India">India</option>
+                                            <option value="Philippines">Philippines</option>
+                                            <option value="South Korea">South Korea</option>
+                                        </select>
+                                    }
                                     else
                                     {
                                         <td>

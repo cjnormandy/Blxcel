@@ -5,11 +5,13 @@ public class CityInfoDbService
 {
     private readonly CosmosClient _cosmosClient;
     private Container _container;
+    private Container _container2;
 
     public CityInfoDbService(CosmosClient cosmosClient)
     {
         _cosmosClient = cosmosClient;
         _container = _cosmosClient.GetContainer("CitiesDb", "Cities");
+        _container2 = _cosmosClient.GetContainer("CitiesDb", "CountryColorMapping");
     }
 
     public async Task AddCityInfoAsync(CityInfo cityInfo)
@@ -22,8 +24,35 @@ public class CityInfoDbService
         }
         else
         {
-            cityInfo.id = existingCity.id;
-            await _container.ReplaceItemAsync(cityInfo, cityInfo.id, new PartitionKey(cityInfo.id));
+            try
+            {
+                // Construct a new SQL query using the country from the fetched city
+                string sqlQuery = $@"SELECT m.Color
+                                    FROM CountryColorMapping m
+                                    WHERE m.Country = '{existingCity.Country}'";
+
+                // Execute the query
+                var queryDefinition = new QueryDefinition(sqlQuery);
+                var queryResultSetIterator = _container2.GetItemQueryIterator<CountryColor>(queryDefinition);
+
+                while (queryResultSetIterator.HasMoreResults)
+                {
+                    var currentResultSet = await queryResultSetIterator.ReadNextAsync();
+                    foreach (CountryColor countryColor in currentResultSet)
+                    {
+                        // Update the color in cityInf with the fetched color
+                        cityInfo.id = existingCity.id;
+                        cityInfo.Color = countryColor.Color;
+
+                        // Replace the item in the container with the updated cityInfo
+                        await _container.ReplaceItemAsync(cityInfo, existingCity.id, new PartitionKey(existingCity.id));
+                    }
+                }
+            }
+            catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                Console.WriteLine("Item not found");
+            }
         }
     }
 
@@ -64,9 +93,40 @@ public class CityInfoDbService
         {
             throw new ArgumentException($"City with the name {updatedCityInfo.Name} does not exist.");
         }
+
+        try
+        {
+            // Construct a new SQL query using the country from the fetched city
+            string sqlQuery = $@"SELECT m.Color
+                                FROM CountryColorMapping m
+                                WHERE m.Country = '{existingCity.Country}'";
+
+            // Execute the query
+            var queryDefinition = new QueryDefinition(sqlQuery);
+            var queryResultSetIterator = _container2.GetItemQueryIterator<CountryColor>(queryDefinition);
+
+            while (queryResultSetIterator.HasMoreResults)
+            {
+                var currentResultSet = await queryResultSetIterator.ReadNextAsync();
+                foreach (CountryColor countryColor in currentResultSet)
+                {
+                    // Update the color in cityInf with the fetched color
+                    updatedCityInfo.id = existingCity.id;
+                    updatedCityInfo.Color = countryColor.Color;
+
+                    // Replace the item in the container with the updated cityInfo
+                    await _container.ReplaceItemAsync(updatedCityInfo, updatedCityInfo.id, new PartitionKey(updatedCityInfo.id));
+                }
+            }
+        }
+        catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            Console.WriteLine("Item not found");
+        }
         
-        updatedCityInfo.id = existingCity.id;
-        await _container.ReplaceItemAsync(updatedCityInfo, updatedCityInfo.id, new PartitionKey(updatedCityInfo.id));
+        // updatedCityInfo.id = existingCity.id;
+        // await _container.ReplaceItemAsync(updatedCityInfo, updatedCityInfo.id, new PartitionKey(updatedCityInfo.id));
+        
     }
 
     public async Task DeleteCityInfoAsync(string cityName)

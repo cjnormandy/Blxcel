@@ -49,7 +49,8 @@ namespace BlazeApp.Pages
                 Population = Convert.ToInt32(row["cityPopulation"]),
                 Country = row["cityCountry"].ToString(),
                 Area = Convert.ToDouble(row["cityArea"]),
-                Seen = row["citySeen"].ToString()
+                Seen = row["citySeen"].ToString(),
+                Color = row["cityColor"].ToString()
             };
             await cosmosDbService.UpdateCityInfoAsync(updatedCityInfo);
             EditRowId = null;
@@ -114,6 +115,22 @@ namespace BlazeApp.Pages
             }
         }
 
+        private void OnSelectChange(ChangeEventArgs e, DataRow row, string columnName)
+        {
+            // Get the selected value from the dropdown
+            string selectedValue = e.Value.ToString();
+            row[columnName] = selectedValue;
+
+            // Find and update the corresponding CityInfo object
+            var cityInfoId = row["cityDetailId"].ToString();
+            var cityInfo = cityInfoList.FirstOrDefault(c => c.id == cityInfoId);
+            if (cityInfo != null)
+            {
+                UpdateCityInfoModel(cityInfo, columnName, selectedValue);
+            }
+        }
+
+
         private void UpdateCityInfoModel(CityInfo cityInfo, string columnName, string updatedValue)
         {
             switch (columnName)
@@ -132,6 +149,9 @@ namespace BlazeApp.Pages
                     break;
                 case "citySeen":
                     cityInfo.Seen = updatedValue;
+                    break;
+                case "cityColor":
+                    cityInfo.Color = updatedValue;
                     break;
             }
             cityInfo.DateAdded = DateTime.UtcNow;

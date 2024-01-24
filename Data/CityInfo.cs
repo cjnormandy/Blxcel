@@ -6,5 +6,6 @@ public class CityInfo
     public string Country { get; set; }
     public double Area { get; set; }
     public string Seen { get; set; }
+    public string Color { get; set; }
     public DateTime DateAdded { get; set; }
 }

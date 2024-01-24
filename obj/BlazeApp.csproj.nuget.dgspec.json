@@ -45,6 +45,10 @@
             "Microsoft.Azure.Cosmos": {
               "target": "Package",
               "version": "[3.37.0, )"
+            },
+            "Microsoft.Data.SqlClient": {
+              "target": "Package",
+              "version": "[5.1.4, )"
             }
           },
           "imports": [
